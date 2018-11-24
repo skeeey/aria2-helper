@@ -1,0 +1,67 @@
+#!/bin/bash
+
+function start_aria2() {
+    which aria2c >/dev/null 2>&1
+    if [ $? -ne 0 ]; then
+        echo "Error: the aria2c cannot be found."
+        return 1
+    fi
+
+    count=`ps ax | grep "aria2c --conf-path" | wc -l`
+    if [ $count -eq 2 ]; then
+        echo "The aria2c has been started."
+        return 0
+    fi
+
+    conf=${HOME}/.aria2/aria2.conf
+    if [ ! -e ${conf} ]; then
+        mkdir -p ${HOME}/.aria2
+        conf_url=https://raw.githubusercontent.com/skeeey/aria2-helper/master/aria2.conf
+        wget -P ${HOME}/.aria2 -o /dev/null ${conf_url}
+        if [ ! -e ${conf} ]; then
+            echo "Error: cannot download configuration file from ${conf_url}."
+            return 1
+        fi
+    fi
+
+    session_file=${HOME}/.aria2/aria2.session
+    if [ ! -e ${session_file} ]; then
+        touch ${session_file}
+    fi
+    
+    echo "The aria2 configuration file at: ${conf}"
+    
+    bt_tracker_linenu=`sed -n -e '/bt-tracker/=' ${conf}`
+    if [ -z "$bt_tracker_linenu" ]; then
+        echo "Warning: There is no [bt-tracker] option."
+    else
+        trackers_url=https://raw.githubusercontent.com/ngosang/trackerslist/master/trackers_all.txt
+        trackers=`wget -qO- ${trackers_url}|awk NF|sed ":a;N;s/\n/,/g;ta"`
+        if [ -z "$trackers" ]; then
+            echo "Warning: cannot download BT trackers list from ${trackers_url}."
+        else
+            bt_tracker="bt-tracker=${trackers}"
+            sed -i "${bt_tracker_linenu}s@.*@${bt_tracker}@" ${conf}
+            echo "The [bt-tracker] (at line ${bt_tracker_linenu}) option is updated."
+        fi
+    fi
+
+    aria2c --conf-path=${conf} -D
+    aria2c_pid=`ps ax | grep "aria2c --conf-path" | grep -v "grep" | awk '{print $1}'`
+    echo "The aria2c ($aria2c_pid) is started."
+
+    return 0
+}
+
+if [ "$1"x == "start"x ]; then
+    start_aria2
+    exit $?
+fi
+
+if [ "$1"x == "stop"x ]; then
+    killall aria2c
+    exit $?
+fi
+
+echo "Usage: $0 [start | stop]"
+exit 1
