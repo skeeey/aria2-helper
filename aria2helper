@@ -36,12 +36,21 @@ function start_aria2() {
         echo "Warning: There is no [bt-tracker] option."
     else
         trackers_url=https://raw.githubusercontent.com/ngosang/trackerslist/master/trackers_all.txt
-        trackers=`wget -qO- ${trackers_url}|awk NF|sed ":a;N;s/\n/,/g;ta"`
+        os=`uname`
+        if [ "$os"x == "Darwin"x ]; then
+            trackers=`wget -qO- ${trackers_url} | tr '[:space:]' ' ' | sed 's/[ ][ ]*/,/g' | sed 's/.$//'`
+        else
+            trackers=`wget -qO- ${trackers_url}|awk NF|sed ":a;N;s/\n/,/g;ta"`
+        fi
         if [ -z "$trackers" ]; then
             echo "Warning: cannot download BT trackers list from ${trackers_url}."
         else
             bt_tracker="bt-tracker=${trackers}"
-            sed -i "${bt_tracker_linenu}s@.*@${bt_tracker}@" ${conf}
+            if [ "$os"x == "Darwin"x ]; then
+                sed -i '' -e  "${bt_tracker_linenu}s@.*@${bt_tracker}@" ${conf}
+            else
+                sed -i "${bt_tracker_linenu}s@.*@${bt_tracker}@" ${conf}
+            fi
             echo "The [bt-tracker] (at line ${bt_tracker_linenu}) option is updated."
         fi
     fi
